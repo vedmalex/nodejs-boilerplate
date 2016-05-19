@@ -2,8 +2,13 @@ import gulp  from 'gulp';
 import loadPlugins from 'gulp-load-plugins';
 import del  from 'del';
 import glob  from 'glob';
+import babel from 'gulp-babel';
 import path  from 'path';
 import manifest  from './package.json';
+import webpack from 'webpack';
+import webpackStream from 'webpack-stream';
+import ExtractTextPlugin from 'extract-text-webpack-plugin';
+import nodemon from 'gulp-nodemon';
 
 // Load all of our Gulp plugins
 const $ = loadPlugins();
@@ -15,10 +20,6 @@ const destinationFolder = config.destination;
 
 function cleanDist(done) {
   del([destinationFolder]).then(() => done());
-}
-
-function cleanTmp(done) {
-  del(['tmp']).then(() => done());
 }
 
 function onError() {
@@ -50,18 +51,37 @@ const watchFiles = ['src/**/*', 'package.json', '**/.eslintrc', '.jscsrc'];
 
 // Run the headless unit tests as you make changes.
 function watch() {
-  gulp.watch(watchFiles, ['test']);
+  gulp.watch(watchFiles, ['clean', 'node6']);
 }
 
-function watchAndDeploy() {
-  gulp.watch(watchFiles, ['deploy']);
+function babelify(...preset) {
+  return gulp.src(['src/**/*.js'])
+    .pipe(babel({
+      presets: preset
+    }))
+    .pipe(gulp.dest(destinationFolder));
 }
+
+function node6() {
+  return babelify('es2015-node6', 'stage-0', 'react');
+}
+
+function nmonitor() {
+  nodemon({
+    script: 'dist/server.js',
+    ext: 'js',
+    env: {
+      'NODE_ENV': 'development'
+    }
+  });
+}
+
+gulp.task('demon', nmonitor);
+
+gulp.task('default', ['watch', 'demon']);
 
 // Remove the built files
 gulp.task('clean', cleanDist);
-
-// Remove our temporary files
-gulp.task('clean-tmp', cleanTmp);
 
 // Lint our source code
 gulp.task('lint-src', lintSrc);
@@ -76,5 +96,5 @@ gulp.task('lint', ['lint-src', 'lint-gulpfile']);
 gulp.task('watch', watch);
 
 // An alias of test
-gulp.task('default', ['test']);
+gulp.task('node6', node6);
 
